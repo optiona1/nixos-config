@@ -1,65 +1,121 @@
+# NixOS 配置（系统 / 用户分层重构版）
 
-# NixOS 优化配置仓库
-> 单一入口 | 文件名直观 | 高扩展性
+> 目标：**结构清晰、易扩展、基于 25.11 分支、注释完整**。
 
-## 核心特性
-1. **单一入口**：所有配置通过`flake.nix`驱动，一键脚本`scripts/apply-config.sh`应用
-2. **直观命名**：按「硬件/主机/模块/用户」分层，文件名直接对应功能
-3. **高扩展性**：支持多主机、多用户、可插拔模块，新增功能只需添加子模块
+本仓库已按职责重构为两条主线：
 
-## 快速使用
-### 1. 克隆仓库
+- `nixos/`：系统级配置（主机、硬件、系统模块）
+- `home/`：用户级配置（Home Manager）
+
+这样可以一眼区分“系统做什么”和“用户做什么”。
+
+---
+
+## 1. 版本基线
+
+- `nixpkgs`：`nixos-25.11`
+- `home-manager`：`release-25.11`
+
+如需更强复现性，请执行并提交：
+
+```bash
+nix flake lock
+```
+
+---
+
+## 2. 目录结构（重构后）
+
+```text
+nixos-config/
+├── flake.nix                     # 唯一入口：统一组装系统层 + 用户层
+├── nixos/
+│   ├── hardware/                 # 硬件配置（按主机名）
+│   │   └── workstation.nix
+│   ├── hosts/                    # 主机差异配置（按主机名）
+│   │   └── workstation/default.nix
+│   └── modules/                  # NixOS 系统模块（纯系统层）
+│       ├── core/                 # 核心系统能力（启动/Nix/服务/音频）
+│       ├── desktop/              # 桌面环境相关
+│       ├── input/                # 输入法/输入设备相关
+│       ├── virtualization/       # 虚拟化容器相关
+│       ├── development/          # 开发环境（语言/编辑器）
+│       └── shell/                # 系统级 shell 配置
+├── home/
+│   └── users/                    # Home Manager 用户层配置
+│       └── uoong/
+├── scripts/
+│   └── apply-config.sh           # 一键应用脚本
+└── README.md
+```
+
+---
+
+## 3. 快速使用
+
 ```bash
 git clone <你的仓库地址> ~/nixos-config
 cd ~/nixos-config
 ```
 
-### 2. 替换占位符
-* 修改flake.nix中的username为你的实际用户名
-* 修改hardware/workstation.nix为你的硬件配置（从/etc/nixos/hardware-configuration.nix复制）
-* 修改scripts/apply-config.sh中的配置项（仓库路径、主机名、用户名）
+### 需要替换的内容
 
-### 3. 应用配置
+1. `flake.nix` 中的 `username`
+2. `nixos/hardware/workstation.nix`（从 `/etc/nixos/hardware-configuration.nix` 复制）
+3. `scripts/apply-config.sh` 中的路径/主机名/用户名
+
+### 应用配置
+
 ```bash
-# 一键应用（推荐）
+# 推荐：系统 + 用户（通过 NixOS 集成 HM）
 ./scripts/apply-config.sh
 
-# 手动应用（备用）
+# 备用：仅系统
 sudo nixos-rebuild switch --flake .#workstation
+
+# 备用：仅用户
 home-manager switch --flake .#yourusername
 ```
-## 目录结构
-```
-nixos-config/
-├── flake.nix                # 唯一入口：驱动所有配置
-├── hardware/                # 硬件配置（按主机区分）
-├── hosts/                   # 主机配置（按主机名区分）
-├── modules/                 # 通用功能模块（可插拔）
-│   ├── system/              # 系统级模块（音频/启动/桌面等）
-│   ├── dev/                 # 开发环境模块（语言/编辑器等）
-│   └── shell/               # Shell相关模块
-├── users/                   # 用户级配置（按用户名区分）
-└── scripts/                 # 辅助脚本
-```
 
-## 扩展指南
+---
+
+## 4. 扩展指南
+
 ### 新增主机
 
-1. 在hardware/下新增newhost.nix
-2. 在hosts/下新增newhost/目录及default.nix
-3. 在flake.nix的hostConfigs中添加newhost = import ./hosts/newhost;
+1. 新建 `nixos/hardware/<host>.nix`
+2. 新建 `nixos/hosts/<host>/default.nix`
+3. 在 `flake.nix` 的 `hostModules` 增加 `<host> = import ./nixos/hosts/<host>;`
 
 ### 新增用户
-1. 在users/下新增newuser/目录及子配置
-2. 在flake.nix中添加users.newuser = import ./users/newuser;
 
-### 新增功能模块
-1. 在modules/对应目录下新增xxx.nix
-2. 在flake.nix的modules列表中添加引用即可
+1. 新建 `home/users/<user>/default.nix`
+2. 在 `flake.nix` 中调整 `username` 或扩展多用户映射
 
-### 总结
-1. **单一入口核心**：`flake.nix` 驱动所有配置，`scripts/apply-config.sh` 一键应用，无需记忆多条命令；
-2. **直观命名关键**：按「硬件→主机→模块→用户」分层，文件名直接对应功能（如`fcitx5.nix`=输入法、`python.nix`=Python开发）；
-3. **扩展性保障**：新增主机/用户/功能只需添加对应目录/文件，修改`flake.nix`中的映射即可，无需改动核心逻辑。
+### 新增系统模块
 
-你只需替换代码中的占位符（如`yourusername`、分区UUID、Git信息等），即可直接使用这套优化后的配置体系。如果需要新增功能（如Docker、Kuber
+1. 在 `nixos/modules/<domain>/` 新建模块
+2. 在 `flake.nix` 的 `nixosCommonModules` 中引入
+
+---
+
+## 5. 设计原则
+
+1. **系统与用户严格分层**：`nixos/` 与 `home/` 分离，减少认知负担。
+2. **单一入口**：所有组合逻辑集中在 `flake.nix`，便于审计和演进。
+3. **模块化组合**：按领域拆分模块，方便新增/禁用功能。
+4. **注释优先**：关键文件保留解释性注释，便于后续维护。
+
+
+## 6. 快速上手你的开发环境
+
+详细实战步骤见：`docs/DEVELOPMENT_SETUP.md`。
+
+
+## 7. 软件安装与配置放置规则（速查）
+
+- 放 `nixos/`：系统服务、驱动、容器、全机通用运行时与工具。
+- 放 `home/users/`：个人软件、终端/编辑器偏好、Git 身份等。
+- 快速判断：**换账号后仍必须存在**的放系统层；仅与你个人习惯相关的放用户层。
+
+详细说明见：`docs/DEVELOPMENT_SETUP.md` 的「3.3 软件安装与配置，应该怎么放？」。

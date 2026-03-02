@@ -1,87 +1,109 @@
-
 {
-  description = "Optimized NixOS Configuration (Single Entry | Intuitive Naming | High Scalability)";
+  description = "NixOS/Home Manager 配置（按系统与用户清晰分层，基于 25.11）";
 
-  # 依赖管理（扩展性：新增依赖只需加在这里）
+  # =========================
+  # 1) 依赖输入（全部集中在这里）
+  # =========================
   inputs = {
-    #nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
-    #nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
-    nixpkgs-unstable.url = "git+https://mirrors.tuna.tsinghua.edu.cn/git/nixpkgs.git?ref=nixos-unstable&shallow=1";
-    nixpkgs.url = "git+https://mirrors.tuna.tsinghua.edu.cn/git/nixpkgs.git?ref=nixos-25.11&shallow=1";
+    # 主系统包源：固定在 nixos-25.11 分支。
+    # 如需完全可复现，可执行 `nix flake lock` 生成 flake.lock 并提交。
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+
+    # 可选：独立引入 unstable，用于极少数需要新版本的软件。
+    nixpkgs-unstable.url = "github:nixos/nixpkgs/nixos-unstable";
+
+    # Home Manager 与系统版本保持同一大版本，避免模块接口不匹配。
     home-manager = {
-      #url = "git+https://mirrors.tuna.tsinghua.edu.cn/git/home-manager.git?ref=nixos-25.11&shallow=1";
       url = "github:nix-community/home-manager/release-25.11";
       inputs.nixpkgs.follows = "nixpkgs";
     };
+
+    # 第三方模块示例：noctalia 依赖较新的包，因此跟随 unstable。
     noctalia = {
       url = "github:noctalia-dev/noctalia-shell";
-      #url = "git+https://mirrors.tuna.tsinghua.edu.cn/git/noctalia-shell.git?ref=nixos-unstable&shallow=1";
       inputs.nixpkgs.follows = "nixpkgs-unstable";
     };
 
+    # 第三方应用示例：Zen Browser。
     zen-browser = {
       url = "github:youwen5/zen-browser-flake";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
 
-  outputs = { self, nixpkgs, home-manager, noctalia, ... }@inputs:
+  outputs = { self, nixpkgs, home-manager, ... }@inputs:
     let
-      # 全局常量（修改一次，全局生效，提升扩展性）
+      # =========================
+      # 2) 全局常量（单点修改）
+      # =========================
       system = "x86_64-linux";
       username = "uoong";
-      # 多主机配置映射（扩展：新增主机只需加键值对）
-      hostConfigs = {
-        workstation = import ./hosts/workstation;
-        # laptop = import ./hosts/laptop; # 扩展用，取消注释即可
+
+      # 主机模块映射：
+      # key = flake 主机名（nixos-rebuild --flake .#<key>）
+      # value = 主机入口模块
+      hostModules = {
+        workstation = import ./nixos/hosts/workstation;
       };
+
+      # 系统级模块组合：只放 NixOS 层，不放用户层。
+      nixosCommonModules = [
+        ./nixos/modules/core/boot.nix
+        ./nixos/modules/core/nix.nix
+        ./nixos/modules/core/services.nix
+        ./nixos/modules/core/audio.nix
+        ./nixos/modules/desktop
+        ./nixos/modules/input
+        ./nixos/modules/virtualization
+        ./nixos/modules/development
+        ./nixos/modules/shell
+      ];
     in
     {
-      # 系统配置入口：sudo nixos-rebuild switch --flake .#workstation
-      nixosConfigurations = builtins.mapAttrs (hostName: hostModule:
-        nixpkgs.lib.nixosSystem {
-          inherit system;
-          specialArgs = { inherit inputs username; }; # 传递参数给子模块
-          modules = [
-            # 硬件配置（按主机名匹配，直观）
-            ./hardware/${hostName}.nix
-            # 主机专属配置
-            hostModule
-            # 通用系统模块（可插拔，按需启用）
-            ./modules/system/audio.nix
-            ./modules/system/boot.nix
-            ./modules/system/nix.nix
-            ./modules/system/services.nix
-            # 桌面相关所有子模块
-            ./modules/system/desktop
-            # 输入相关所有子模块
-            ./modules/system/input
-            # 虚拟化
-            ./modules/system/virtualization
-            # 开发相关模块
-            ./modules/dev
-            # Shell相关模块
-            ./modules/shell
+      # =========================
+      # 3) NixOS 系统配置输出
+      # =========================
+      nixosConfigurations = builtins.mapAttrs
+        (hostName: hostModule:
+          nixpkgs.lib.nixosSystem {
+            inherit system;
 
-            # Home Manager集成（单一入口管理用户配置）
-            home-manager.nixosModules.home-manager
-            {
-              home-manager = {
-                extraSpecialArgs = { inherit inputs username; };
-                useUserPackages = true;
-                useGlobalPkgs = true;
-                users.${username} = import ./users/${username};
-              };
-            }
-          ];
-        }
-      ) hostConfigs;
+            # specialArgs 会传给所有 NixOS 子模块。
+            specialArgs = { inherit inputs username; };
 
-      # 独立Home Manager入口（可选，兼容单独更新用户配置）
+            modules =
+              [
+                # 每台机器的硬件配置（必须与 hostName 对应）
+                ./nixos/hardware/${hostName}.nix
+
+                # 主机差异化配置（主机名、网络、用户组等）
+                hostModule
+              ]
+              ++ nixosCommonModules
+              ++ [
+                # 将 Home Manager 作为 NixOS 子模块接入：
+                # 这样 `nixos-rebuild` 时会一并应用用户配置。
+                home-manager.nixosModules.home-manager
+                {
+                  home-manager = {
+                    useGlobalPkgs = true;
+                    useUserPackages = true;
+                    extraSpecialArgs = { inherit inputs username; };
+                    users.${username} = import ./home/users/${username};
+                  };
+                }
+              ];
+          })
+        hostModules;
+
+      # =========================
+      # 4) 独立 Home Manager 输出
+      # =========================
+      # 适用于不切换系统、只切换用户配置场景。
       homeConfigurations.${username} = home-manager.lib.homeManagerConfiguration {
         pkgs = nixpkgs.legacyPackages.${system};
         extraSpecialArgs = { inherit inputs username; };
-        modules = [ ./users/${username} ];
+        modules = [ ./home/users/${username} ];
       };
     };
 }
