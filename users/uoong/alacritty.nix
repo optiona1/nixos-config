@@ -1,0 +1,49 @@
+{ pkgs, ... }:
+
+{
+  programs.alacritty.enable = true;
+
+  xdg.configFile."alacritty/alacritty.toml".text = ''
+    [window]
+    padding = { x = 6, y = 6 }          # window_padding_width 6
+    opacity = 0.90                      # background_opacity 0.90
+    decorations = "full"                # 保留系统标题栏（kitty 的 macos_titlebar_color 无直接等价）
+
+    [scrolling]
+    history = 10000                     # scrollback_lines 10000
+
+    [font]
+    size = 15.0                         # font_size 15.0
+    normal  = { family = "Maple Mono NF", style = "Regular" }
+    bold    = { family = "Maple Mono NF", style = "Bold" }
+    italic  = { family = "Maple Mono NF", style = "Italic" }
+    bold_italic = { family = "Maple Mono NF", style = "Bold Italic" }
+
+    [cursor]
+    style = { shape = "Beam", blinking = "Off" }   # cursor_shape beam
+
+    [colors]
+    # 基本前景/背景
+    primary = { background = "#1a1b26", foreground = "#a9b1d6" }
+
+    # 选中区域
+    selection = { text = "#d8caac", background = "#505a60" }
+
+    # 光标
+    cursor = { text = "#1a1b26", cursor = "#c0caf5" }
+
+    # 网址下划线颜色（Alacritty 无内建 url 高亮，需用 hints 插件）
+    # 这里仅留作注释：url_color = "#9ece6a"
+
+    # 边框颜色（Alacritty 把边框归到 window 部分）
+    [colors.bright]
+    black   = "#414868"
+    red     = "#f7768e"
+    green   = "#73daca"
+    yellow  = "#e0af68"
+    blue    = "#7aa2f7"
+    magenta = "#bb9af7"
+    cyan    = "#7dcfff"
+    white   = "#c0caf5"
+  '';
+}
