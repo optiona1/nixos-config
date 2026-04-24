@@ -1,0 +1,103 @@
+// Omarchy-inspired Niri preset for openSUSE Tumbleweed
+// Usage:
+//   cp ~/.config/niri/config.kdl ~/.config/niri/config.kdl.bak
+//   cp ./dotfiles/niri/omarchy-tumbleweed.kdl ~/.config/niri/config.kdl
+
+input {
+    keyboard {
+        xkb {
+            layout "us"
+            options "caps:escape"
+        }
+        numlock
+    }
+
+    touchpad {
+        tap
+        natural-scroll
+    }
+}
+
+layout {
+    gaps 12
+    center-focused-column "always"
+
+    default-column-width {
+        proportion 0.55
+    }
+
+    focus-ring {
+        width 3
+        active-color "#94e2d5"
+        inactive-color "#45475a"
+    }
+
+    shadow {
+        on
+        softness 24
+        spread 6
+        color "#0006"
+    }
+}
+
+environment {
+    XDG_SESSION_TYPE "wayland"
+    MOZ_ENABLE_WAYLAND "1"
+    NIXOS_OZONE_WL "1"
+    ELECTRON_OZONE_PLATFORM_HINT "auto"
+    TERMINAL "alacritty"
+}
+
+prefer-no-csd
+screenshot-path "~/Pictures/Screenshots/%Y-%m-%d_%H-%M-%S.png"
+
+binds {
+    // launcher / terminal
+    Mod+Return { spawn "alacritty"; }
+    Mod+Space { spawn "wofi" "--show" "drun"; }
+    Mod+Shift+Space { spawn "wofi" "--show" "run"; }
+
+    // session helpers
+    Mod+Shift+E { spawn "wlogout"; }
+    Mod+Shift+L { spawn "swaylock" "-f"; }
+
+    // screenshot workflow
+    Print { spawn "grim" "~/Pictures/Screenshots/full-$(date +%F-%H%M%S).png"; }
+    Mod+Print { spawn-sh "grim -g \"$(slurp)\" ~/Pictures/Screenshots/area-$(date +%F-%H%M%S).png"; }
+
+    // window navigation (vim-like)
+    Mod+H { focus-column-left; }
+    Mod+J { focus-window-down; }
+    Mod+K { focus-window-up; }
+    Mod+L { focus-column-right; }
+
+    Mod+Ctrl+H { move-column-left; }
+    Mod+Ctrl+J { move-window-down; }
+    Mod+Ctrl+K { move-window-up; }
+    Mod+Ctrl+L { move-column-right; }
+
+    Mod+Q { close-window; }
+    Mod+F { fullscreen-window; }
+    Mod+O { toggle-overview; }
+
+    Mod+1 { focus-workspace 1; }
+    Mod+2 { focus-workspace 2; }
+    Mod+3 { focus-workspace 3; }
+    Mod+4 { focus-workspace 4; }
+    Mod+5 { focus-workspace 5; }
+
+    Mod+Shift+1 { move-column-to-workspace 1; }
+    Mod+Shift+2 { move-column-to-workspace 2; }
+    Mod+Shift+3 { move-column-to-workspace 3; }
+    Mod+Shift+4 { move-column-to-workspace 4; }
+    Mod+Shift+5 { move-column-to-workspace 5; }
+
+    XF86AudioRaiseVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%+"; }
+    XF86AudioLowerVolume { spawn "wpctl" "set-volume" "@DEFAULT_AUDIO_SINK@" "5%-"; }
+    XF86AudioMute { spawn "wpctl" "set-mute" "@DEFAULT_AUDIO_SINK@" "toggle"; }
+}
+
+spawn-at-startup "waybar"
+spawn-at-startup "nm-applet"
+spawn-at-startup "blueman-applet"
+spawn-at-startup "swaybg" "-i" "$HOME/Pictures/wallpaper.jpg" "-m" "fill"

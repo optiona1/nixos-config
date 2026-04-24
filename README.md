@@ -63,3 +63,12 @@ nixos-config/
 3. **扩展性保障**：新增主机/用户/功能只需添加对应目录/文件，修改`flake.nix`中的映射即可，无需改动核心逻辑。
 
 你只需替换代码中的占位符（如`yourusername`、分区UUID、Git信息等），即可直接使用这套优化后的配置体系。如果需要新增功能（如Docker、Kuber
+
+## openSUSE Tumbleweed + Niri（Omarchy 风格）
+如果你想在 **openSUSE Tumbleweed** 上快速搭建类似 Omarchy 的日常工作环境，可使用本仓库提供的脚本与预设：
+
+```bash
+sudo ./scripts/opensuse-tumbleweed-niri-omarchy.sh
+```
+
+详细说明见：`docs/opensuse-omarchy-niri.md`。
